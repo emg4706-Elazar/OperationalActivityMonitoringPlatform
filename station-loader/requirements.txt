@@ -1,0 +1,2 @@
+mysql-connector-python==26.7.0
+pandas==3.0.6
