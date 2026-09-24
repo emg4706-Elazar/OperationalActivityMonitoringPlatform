@@ -21,7 +21,7 @@ services:
 
   station-loader:
     build:
-      context: .\station-loader
+      context: ./station-loader
       dockerfile: Dockerfile
     container_name: station-loader
     environment:
@@ -38,6 +38,66 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+
+
+  broker:
+    image: apache/kafka:4.3.1
+    container_name: broker
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT"
+      
+      KAFKA_LISTENERS: "CONTROLLER://:29093,INTERNAL://:19092,EXTERNAL://:9092"
+
+      KAFKA_ADVERTISED_LISTENERS: "INTERNAL://broker:19092,EXTERNAL://localhost:9092"
+
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:29093
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    
+    healthcheck:
+      test: 
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+
+  producer:
+    build: 
+      context: ./producer
+      dockerfile: Dockerfile
+    container_name: producer
+    environment:
+      DATA_FILE_PATH: /app/data/activity_readings.csv
+      KAFKA_BOOTSTRAP_SERVERS: "broker:19092"
+      KAFKA_TOPIC_NAME: activity-readings
+      KAFKA_CLIENT_ID: "readings.producer"
+      PUBLISH_DELAY_SECONDS: "0.1"
+
+    volumes:
+      - ./data:/app/data:ro
+
+    depends_on:
+      broker:
+        condition: service_healthy
+      station-loader:
+        condition: service_completed_successfully
+
+
 
 volumes:
   mysql-data:
