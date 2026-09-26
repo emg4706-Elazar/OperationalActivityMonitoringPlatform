@@ -98,6 +98,31 @@ services:
         condition: service_completed_successfully
 
 
+  mongo:
+    image: mongo:8.0.4
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    
+    volumes:
+      - mongo-data:/data/db
+
+    healthcheck:
+      test: 
+        [
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "--eval",
+          "db.adminCommand('ping')"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+
 
 volumes:
   mysql-data:
+  mongo-data:
