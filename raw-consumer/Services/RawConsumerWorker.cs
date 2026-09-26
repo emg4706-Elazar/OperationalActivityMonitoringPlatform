@@ -5,7 +5,7 @@ using RawConsumer.Configuration;
 using Microsoft.Extensions.Hosting;
 using System.Text.Json;
 using MongoDB.Driver;
-using Microsoft.Extensions.Options;
+using RawConsumer.Repositories;
 
 namespace RawConsumer.Services;
 
@@ -13,19 +13,19 @@ public class RawConsumerWorker : BackgroundService
 {
     private readonly IConsumer<string, string> _consumer;
     private readonly KafkaOptions _options;
-    private readonly IMongoCollection<RawReading> _collection;
+    private readonly IRawReadingRepository _repository;
     private readonly ILogger<RawConsumerWorker> _logger;
 
 
     public RawConsumerWorker(
         IConsumer<string, string> consumer,
         KafkaOptions options,
-        IMongoCollection<RawReading> collection,
+        IRawReadingRepository repository,
         ILogger<RawConsumerWorker> logger)
     {
         _consumer = consumer;
         _options = options;
-        _collection = collection;
+        _repository = repository;
         _logger = logger;
     }
 
@@ -35,6 +35,9 @@ public class RawConsumerWorker : BackgroundService
         CancellationToken stoppingToken)
     {
         await Task.Yield();
+
+        await _repository.CreateIndexesAsync(
+            stoppingToken);
 
         _consumer.Subscribe(_options.Topic);
 
@@ -95,7 +98,11 @@ public class RawConsumerWorker : BackgroundService
                     continue;
                 }
 
-                await _collection.InsertOneAsync(validReading!);
+                await _repository.UpsertAsync(
+                    validReading!,
+                    stoppingToken);
+
+                _consumer.Commit(result);
 
                 _logger.LogInformation(
                     "Save event: {EventId} 'raw readings' collection",

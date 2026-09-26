@@ -25,9 +25,9 @@ public static class ReadingValidationService
             return false;
         }
 
-        if (!DateTimeOffset.TryParse(
+        if (!DateTime.TryParse(
             reading.Timestamp,
-            out DateTimeOffset timestamp))
+            out DateTime timestamp))
         {
             error = $"Invalid timestamp: {reading.Timestamp}.";
             return false;

@@ -6,6 +6,7 @@ using Confluent.Kafka;
 using RawConsumer.Services;
 using MongoDB.Driver;
 using RawConsumer.Models;
+using RawConsumer.Repositories;
 
 
 namespace RawConsumer;
@@ -92,6 +93,12 @@ public class Program
                     return database.GetCollection<RawReading>(
                         options.Collection);
                 });
+
+
+        // Register the repository in the DI
+        builder.Services.AddScoped<
+            IRawReadingRepository,
+            RawReadingRepository>();
 
         IHost host = builder.Build();
 

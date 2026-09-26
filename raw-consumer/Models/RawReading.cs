@@ -6,6 +6,7 @@ namespace RawConsumer.Models;
 public class RawReading
 {
     [BsonId]
+    [BsonRepresentation(BsonType.ObjectId)]
     public string? Id { get; set; }
 
     [BsonElement("event_id")]
@@ -15,7 +16,7 @@ public class RawReading
     public string SourceId { get; set; } = null!;
 
     [BsonElement("timestamp")]
-    public DateTimeOffset Timestamp { get; set; }
+    public DateTime Timestamp { get; set; }
 
     [BsonElement("value")]
     public Double Value { get; set; }
