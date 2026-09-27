@@ -122,6 +122,27 @@ services:
       start_period: 10s
 
 
+  raw-consumer:
+    build:
+      context: ./raw-consumer
+      dockerfile: Dockerfile
+    container_name: raw-consumer
+    environment:
+      KAFKA__BOOTSTRAP_SERVERS: "broker:19092"
+      KAFKA__GROUP_ID: "raw-consumer"
+      KAFKA_CLIENT_ID: "operational-monitoring-group"
+      KAFKA_TOPIC: "activity-readings"
+
+      MONGO__URI: "mongodb://mongo:27017"
+      MONGO__DATABASE: "operational-monitoring"
+      MONGO__COLLECTION: "raw_readings"
+
+    depends_on:
+      broker:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+
 
 volumes:
   mysql-data:

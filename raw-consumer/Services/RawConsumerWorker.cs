@@ -4,8 +4,8 @@ using Microsoft.Extensions.Logging;
 using RawConsumer.Configuration;
 using Microsoft.Extensions.Hosting;
 using System.Text.Json;
-using MongoDB.Driver;
 using RawConsumer.Repositories;
+using Microsoft.Extensions.Options;
 
 namespace RawConsumer.Services;
 
@@ -19,12 +19,12 @@ public class RawConsumerWorker : BackgroundService
 
     public RawConsumerWorker(
         IConsumer<string, string> consumer,
-        KafkaOptions options,
+        IOptions<KafkaOptions> options,
         IRawReadingRepository repository,
         ILogger<RawConsumerWorker> logger)
     {
         _consumer = consumer;
-        _options = options;
+        _options = options.Value;
         _repository = repository;
         _logger = logger;
     }
@@ -71,11 +71,13 @@ public class RawConsumerWorker : BackgroundService
                     continue;
                 }
 
-                if (reading is null)
+                if (reading is null ||
+                    reading.Value == null)
                 {
                     _logger.LogWarning(
                         "Returned null from kafka message");
 
+                    _consumer.Commit(result);
                     continue;
                 }
 

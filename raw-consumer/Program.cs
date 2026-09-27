@@ -96,7 +96,7 @@ public class Program
 
 
         // Register the repository in the DI
-        builder.Services.AddScoped<
+        builder.Services.AddSingleton<
             IRawReadingRepository,
             RawReadingRepository>();
 
