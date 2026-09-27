@@ -12,7 +12,7 @@ services:
       - ./database/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -P 3306 -uroot -p$$MYSQL_ROOT_PASSWORD"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -76,6 +76,30 @@ services:
       start_period: 15s
 
 
+  kafka-init-readings:
+    image: apache/kafka:4.3.1
+
+    depends_on: 
+      broker:
+        condition: service_healthy
+
+    entrypoint:
+      - /opt/kafka/bin/kafka-topics.sh
+
+    command:
+      - --bootstrap-server
+      - broker:19092
+      - --create
+      - --if-not-exists
+      - --topic
+      - activity-readings
+      - --partitions
+      - "1"
+      - --replication-factor
+      - "1"
+
+
+
   producer:
     build: 
       context: ./producer
@@ -92,8 +116,8 @@ services:
       - ./data:/app/data:ro
 
     depends_on:
-      broker:
-        condition: service_healthy
+      kafka-init-readings:
+        condition: service_completed_successfully
       station-loader:
         condition: service_completed_successfully
 
@@ -128,9 +152,9 @@ services:
       dockerfile: Dockerfile
     container_name: raw-consumer
     environment:
-      Kafka__BootstapServers: "broker:19092"
-      Kafka__GroupId: "raw-consumer"
-      Kafka__ClientId: "operational-monitoring-group"
+      Kafka__BootstrapServers: "broker:19092"
+      Kafka__GroupId: "operational-monitoring-group"
+      Kafka__ClientId: "raw-consumer"
       Kafka__Topic: "activity-readings"
 
       Mongo__Uri: "mongodb://mongo:27017"
@@ -138,10 +162,56 @@ services:
       Mongo__Collection: "raw_readings"
 
     depends_on:
-      broker:
-        condition: service_healthy
+      kafka-init-readings:
+        condition: service_completed_successfully
       mongo:
         condition: service_healthy
+
+
+  analytics-service:
+    build:
+      context: ./analytics-service
+      dockerfile: Dockerfile
+    container_name: analytics-service
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "broker:19092"
+      KAFKA_INPUT_TOPIC: "activity-readings"
+      KAFKA_OUTPUT_TOPIC: "anomalies"
+      KAFKA_GROUP_ID: "analitics-group"
+      KAFKA_CLIENT_ID: "analitics-service"
+
+      WINDOW_SIZE: "20"
+      Z_THRESHOLD: "3.5"
+      CRITICAL_THRESHOLD: "4.5"
+
+    depends_on:
+      kafka-init-readings:
+        condition: service_completed_successfully
+      kafka-init-anomalies:
+        condition: service_completed_successfully
+
+
+  kafka-init-anomalies:
+    image: apache/kafka:4.3.1
+
+    depends_on:
+      broker:
+        condition: service_healthy
+
+    entrypoint:
+      - /opt/kafka/bin/kafka-topics.sh
+
+    command:
+      - --bootstrap-server
+      - broker:19092
+      - --create
+      - --if-not-exists
+      - --topic
+      - anomalies
+      - --partitions
+      - "1"
+      - --replication-factor
+      - "1"
 
 
 volumes:
