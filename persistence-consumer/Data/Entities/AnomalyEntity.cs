@@ -5,7 +5,7 @@ namespace PersistenceConsumer.Data.Entities;
 
 public class AnomalyEntity
 {
-    public int? Id { get; set; }
+    public long Id { get; set; }
     public string EventId { get; set; } = null!;
     public string SourceId { get; set; } = null!;
     public double Value { get; set; }

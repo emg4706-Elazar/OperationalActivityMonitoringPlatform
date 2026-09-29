@@ -7,7 +7,7 @@ namespace PersistenceConsumer.Mappings;
 public static class MySqlMappings
 {
     public static AnomalyEntity ToMySqlEntity(
-        AnomalyMessage message)
+        this AnomalyMessage message)
     {
         return new AnomalyEntity
         {
@@ -18,6 +18,7 @@ public static class MySqlMappings
             StandardDeviation = message.StandardDeviation,
             ZScore = message.ZScore,
             Severity = message.Severity,
+            Status = "New",
             DetectedAt = message.DetectedAt.UtcDateTime
         };
     }

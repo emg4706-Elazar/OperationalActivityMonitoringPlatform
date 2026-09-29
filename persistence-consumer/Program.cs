@@ -5,6 +5,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using PersistenceConsumer.Configuration;
 using PersistenceConsumer.Data;
+using PersistenceConsumer.Repositories;
+using PersistenceConsumer.Services;
 
 
 namespace PersistenceConsumer;
@@ -84,5 +86,17 @@ public class Program
                     ServerVersion.AutoDetect(connectionString));
             });
 
+        // Register the mysql repository
+        builder.Services.AddSingleton<
+            IMySqlRepository, MySqlRepository>();
+
+        builder.Services.AddSingleton<AnomalyProcessor>();
+
+        builder.Services.AddHostedService<
+            PersistenceConsumerWorker>();
+
+        var host = builder.Build();
+
+        await host.RunAsync();
     }
 }
