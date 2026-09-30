@@ -40,4 +40,25 @@ public class MySqlRepository :IMySqlRepository
 
         return entity;
     }
+
+
+    public async Task<string?> GetSectorBySourceIdAsync(
+        string sourceId,
+        CancellationToken cancellationToken)
+    {
+        await using var context =
+            await _contextFactory.CreateDbContextAsync(
+                cancellationToken);
+
+
+        string? sector = await context.Stations
+            .AsNoTracking()
+            .Where(station => station.Id == sourceId)
+            .Select(station => station.Sector)
+            .SingleOrDefaultAsync(
+               cancellationToken);
+
+
+        return sector;
+    }
 }

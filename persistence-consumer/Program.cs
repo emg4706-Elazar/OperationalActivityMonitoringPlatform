@@ -7,6 +7,7 @@ using PersistenceConsumer.Configuration;
 using PersistenceConsumer.Data;
 using PersistenceConsumer.Repositories;
 using PersistenceConsumer.Services;
+using Elastic.Clients.Elasticsearch;
 
 
 namespace PersistenceConsumer;
@@ -89,6 +90,49 @@ public class Program
         // Register the mysql repository
         builder.Services.AddSingleton<
             IMySqlRepository, MySqlRepository>();
+
+
+        // Add the Elasticsearch options to the DI
+        builder.Services.AddOptions<ElasticsearchOptions>()
+            .Bind(builder.Configuration.GetSection("Elasticsearch"))
+            .Validate(options =>
+                !string.IsNullOrWhiteSpace(options.Url),
+                "Elasticsearch:Url is required")
+            .Validate(options =>
+                !string.IsNullOrWhiteSpace(options.IndexName),
+                "Elsaticsearch:IndexName is required")
+            .ValidateOnStart();
+
+        // Register the elastic client
+        builder.Services.AddSingleton<ElasticsearchClient>(
+            services =>
+            {
+                ElasticsearchOptions options =
+                services.GetRequiredService<
+                    IOptions<ElasticsearchOptions>>()
+                    .Value;
+
+
+                ElasticsearchClientSettings settings =
+                    new ElasticsearchClientSettings(
+                        new Uri(options.Url))
+                        .DefaultIndex(options.IndexName);
+
+                return new ElasticsearchClient(settings);
+            });
+
+
+        // Register the Elastic initializer to the DI
+        builder.Services.AddSingleton<
+            ElasticsearchIndexInitializer>();
+
+        // Register the Elastic repository to the DI
+        builder.Services.AddSingleton<
+            IElasticsearchRepository,
+            ElasticsearchRepository>();
+
+
+
 
         builder.Services.AddSingleton<AnomalyProcessor>();
 

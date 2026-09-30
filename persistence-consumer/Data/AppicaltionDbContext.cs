@@ -15,4 +15,7 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<AnomalyEntity> Anomalies =>
         Set<AnomalyEntity>();
+
+    public DbSet<StationEntity> Stations =>
+        Set<StationEntity>();
 }

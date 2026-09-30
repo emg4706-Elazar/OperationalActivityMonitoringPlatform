@@ -8,7 +8,7 @@ using System.Text.Json;
 
 namespace PersistenceConsumer.Services;
 
-public class PersistenceConsumerWorker : BackgroundService, IDisposable
+public class PersistenceConsumerWorker : BackgroundService
 {
     private readonly IConsumer<string, string> _consumer;
     private readonly KafkaOptions _options;
@@ -75,16 +75,16 @@ public class PersistenceConsumerWorker : BackgroundService, IDisposable
                     continue;
                 }
 
-                await _processor.Process(
+                await _processor.ProcessAsync(
                     anomalyMessage, stoppingToken);
 
                 _consumer.Commit(result);
             }
-            
+
 
         }
         catch (OperationCanceledException)
-            when(stoppingToken.IsCancellationRequested)
+            when (stoppingToken.IsCancellationRequested)
         {
             _logger.LogInformation(
                 "Kafka consumer is stopping");
@@ -95,6 +95,16 @@ public class PersistenceConsumerWorker : BackgroundService, IDisposable
                 ex,
                 "Kafka consumer error: {Reason}.",
                 ex.Error.Reason);
+
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Persistence consumer stopped due to an error");
+
+            throw;
         }
         finally
         {

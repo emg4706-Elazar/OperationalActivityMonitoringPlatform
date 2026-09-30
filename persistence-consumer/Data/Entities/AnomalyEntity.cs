@@ -13,6 +13,6 @@ public class AnomalyEntity
     public double StandardDeviation { get; set; }
     public double? ZScore { get; set; }
     public string Severity { get; set; } = null!;
-    public string? Status { get; set; }
+    public string Status { get; set; } = "New";
     public DateTime DetectedAt { get; set; }
 }

@@ -7,4 +7,8 @@ public interface IMySqlRepository
     Task<AnomalyEntity> SaveOrGetExistingAsync(
     AnomalyEntity entity,
     CancellationToken cancellationToken);
+
+    Task<string?> GetSectorBySourceIdAsync(
+        string sourceId,
+        CancellationToken cancellationToken);
 }

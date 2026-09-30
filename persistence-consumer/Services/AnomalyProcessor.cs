@@ -2,6 +2,7 @@
 using PersistenceConsumer.Data.Entities;
 using PersistenceConsumer.Repositories;
 using PersistenceConsumer.Models;
+using Microsoft.Extensions.Primitives;
 
 
 namespace PersistenceConsumer.Services;
@@ -9,14 +10,17 @@ namespace PersistenceConsumer.Services;
 public class AnomalyProcessor
 {
     private readonly IMySqlRepository _mySqlRepository;
+    private readonly IElasticsearchRepository _elasticRepository;
     
     public AnomalyProcessor(
-        IMySqlRepository mySqlRepository)
+        IMySqlRepository mySqlRepository,
+        IElasticsearchRepository elasticRepository)
     {
         _mySqlRepository = mySqlRepository;
+        _elasticRepository = elasticRepository;
     }
 
-    public async Task Process(
+    public async Task ProcessAsync(
         AnomalyMessage message,
         CancellationToken cancellationToken)
     {
@@ -25,5 +29,27 @@ public class AnomalyProcessor
             .SaveOrGetExistingAsync(
                 message.ToMySqlEntity(),
                 cancellationToken);
+
+        string? sector =
+            await _mySqlRepository
+            .GetSectorBySourceIdAsync(entity.SourceId,
+            cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(sector))
+        {
+            throw new InvalidOperationException(
+                $"Station '{entity.SourceId}' was not found");
+        }
+
+
+        AnomalyDocument document =
+            entity.ToElasticsearch(sector);
+
+        await _elasticRepository.UpsertAsync(
+            document,
+            cancellationToken);
+
+
+        
     }
 }
