@@ -1,0 +1,124 @@
+﻿using RawConsumer.Models;
+using Confluent.Kafka;
+using Microsoft.Extensions.Logging;
+using RawConsumer.Configuration;
+using Microsoft.Extensions.Hosting;
+using System.Text.Json;
+using RawConsumer.Repositories;
+using Microsoft.Extensions.Options;
+
+namespace RawConsumer.Services;
+
+public class RawConsumerWorker : BackgroundService
+{
+    private readonly IConsumer<string, string> _consumer;
+    private readonly KafkaOptions _options;
+    private readonly IRawReadingRepository _repository;
+    private readonly ILogger<RawConsumerWorker> _logger;
+
+
+    public RawConsumerWorker(
+        IConsumer<string, string> consumer,
+        IOptions<KafkaOptions> options,
+        IRawReadingRepository repository,
+        ILogger<RawConsumerWorker> logger)
+    {
+        _consumer = consumer;
+        _options = options.Value;
+        _repository = repository;
+        _logger = logger;
+    }
+
+
+
+    protected override async Task ExecuteAsync(
+        CancellationToken stoppingToken)
+    {
+        await Task.Yield();
+
+        await _repository.CreateIndexesAsync(
+            stoppingToken);
+
+        _consumer.Subscribe(_options.Topic);
+
+        _logger.LogInformation(
+            "Subscribe to topic '{TopicName}'",
+            _options.Topic);
+
+        try
+        {
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                var result = _consumer.Consume(stoppingToken);
+
+                if (result?.Message?.Value is null)
+                    continue;
+
+                IncomingReading? reading;
+                try
+                {
+                    reading = JsonSerializer
+                   .Deserialize<IncomingReading>(result.Message.Value);
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Invalid JSON at offset {Offset}",
+                        result.Offset.Value);
+
+                    _consumer.Commit(result);
+                    continue;
+                }
+
+                if (reading is null ||
+                    reading.Value == null)
+                {
+                    _logger.LogWarning(
+                        "Returned null from kafka message");
+
+                    _consumer.Commit(result);
+                    continue;
+                }
+
+                RawReading? validReading;
+                string? error;
+
+                bool isValid = ReadingValidationService.Validate(
+                    reading,
+                    out validReading,
+                    out error);
+
+                if (!isValid)
+                {
+                    _logger.LogWarning(
+                        "Invalid reading for event {EventId}. Error: {Error}",
+                        result.Message.Key,
+                        error);
+
+                    _consumer.Commit(result);
+                    continue;
+                }
+
+                await _repository.UpsertAsync(
+                    validReading!,
+                    stoppingToken);
+
+                _consumer.Commit(result);
+
+                _logger.LogInformation(
+                    "Save event: {EventId} 'raw readings' collection",
+                    validReading!.EventId);
+            }
+        }
+        catch (OperationCanceledException)
+            when (stoppingToken.IsCancellationRequested)
+        {
+            _logger.LogInformation("Raw consumer is stopping");
+        }
+        finally
+        {
+            _consumer.Close();
+        }
+    }
+}
