@@ -275,6 +275,10 @@ services:
 
 
   persistence-consumer:
+    build:
+      context: ./persistence-consumer
+      dockerfile: Dockerfile
+    container_name: persistence-consumer
     environment:
       RabbitMq__HostName: "rabbitmq"
       RabbitMq__Port: "5672"
@@ -282,6 +286,32 @@ services:
       RabbitMq__Password: "secret"
       RabbitMq__QueueName: "alerts.critical"
 
+      Kafka__BootstrapServers: "broker:19092"
+      Kafka__Topic: "anomalies"
+      Kafka__GroupId: "persistence-consumer-group"
+      Kafka__ClientId: "persistence-consumer"
+
+      MySql__ConnectionStrings: "Server=mysql;Port=3306;Database=operational_monitoring;User=root;Password=secret;"
+
+      Elasticsearch__Url: http://elasticsearch:9200
+      Elasticsearch__IndexName: anomalies
+
+
+    depends_on:
+      station-loader:
+        condition: service_completed_successfully
+        
+      mysql:
+        condition: service_healthy
+
+      elasticsearch:
+        condition: service_healthy
+
+      rabbitmq:
+        condition: service_healthy
+
+      kafka-init-anomalies:
+        condition: service_completed_successfully
 
 
 volumes:

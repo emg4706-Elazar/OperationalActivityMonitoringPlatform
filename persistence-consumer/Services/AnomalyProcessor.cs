@@ -2,7 +2,6 @@
 using PersistenceConsumer.Data.Entities;
 using PersistenceConsumer.Repositories;
 using PersistenceConsumer.Models;
-using Microsoft.Extensions.Primitives;
 
 
 namespace PersistenceConsumer.Services;
@@ -11,13 +10,16 @@ public class AnomalyProcessor
 {
     private readonly IMySqlRepository _mySqlRepository;
     private readonly IElasticsearchRepository _elasticRepository;
+    private readonly IRabbitMqPublisher _rabbitMqPublisher;
     
     public AnomalyProcessor(
         IMySqlRepository mySqlRepository,
-        IElasticsearchRepository elasticRepository)
+        IElasticsearchRepository elasticRepository,
+        IRabbitMqPublisher rabbitMqPublisher)
     {
         _mySqlRepository = mySqlRepository;
         _elasticRepository = elasticRepository;
+        _rabbitMqPublisher = rabbitMqPublisher;
     }
 
     public async Task ProcessAsync(
@@ -50,6 +52,22 @@ public class AnomalyProcessor
             cancellationToken);
 
 
-        
+        if (string.Equals(
+            entity.Severity,
+            "Critical",
+            StringComparison.OrdinalIgnoreCase))
+        {
+            CriticalAlertMessage alert = new()
+            {
+                AnomalyId = entity.Id,
+                SourceId = entity.SourceId,
+                Severity = entity.Severity,
+                DetectedAt = entity.DetectedAt
+            };
+
+            await _rabbitMqPublisher.PublishAsync(
+                alert,
+                cancellationToken);
+        }
     }
 }

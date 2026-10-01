@@ -132,6 +132,31 @@ public class Program
             ElasticsearchRepository>();
 
 
+        // Add Rabbitmq options to the DI
+        builder.Services.AddOptions<RabbitMqOptions>()
+           .Bind(builder.Configuration.GetSection("RabbitMq"))
+           .Validate(options =>
+               !string.IsNullOrWhiteSpace(options.HostName),
+               "RabbitMq:HostName is required")
+           .Validate(options =>
+               options.Port > 0,
+               "RabbitMq:Port must be positive")
+           .Validate(options =>
+               !string.IsNullOrWhiteSpace(options.UserName),
+               "RabbitMq:UserName is required")
+           .Validate(options =>
+               !string.IsNullOrWhiteSpace(options.Password),
+               "RabbitMq:Password is required")
+           .Validate(options =>
+               !string.IsNullOrWhiteSpace(options.QueueName),
+               "RabbitMq:QueueName is required")
+           .ValidateOnStart();
+
+
+        // Register the RabbitMq publisher to the DI
+        builder.Services.AddSingleton<
+            IRabbitMqPublisher,
+            RabbitMqPublisher>();
 
 
         builder.Services.AddSingleton<AnomalyProcessor>();
